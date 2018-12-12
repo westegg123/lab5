@@ -11,18 +11,15 @@
 #include "stdbool.h"
 #include "helper.h"
 #include "bp.h"
+#include "shell.h"
+#include "cache.h"
+#include "pipe.h"
+
 #include <limits.h>
 
-typedef struct CPU_State {
-	/* register file state */
-	int64_t REGS[ARM_REGS];
-	int FLAG_N;        /* flag N */
-	int FLAG_Z;        /* flag Z */
 
-	/* program counter in fetch stage */
-	uint64_t PC;
-	
-} CPU_State;
+
+#define ARM_REGS 32
 
 // PIPELINE REGISTER
 typedef struct IF_ID_REGS {
@@ -56,10 +53,31 @@ typedef struct Pipeline_Regs {
 
 // END PIPELINE REGISTER STRUCTS
 
-int RUN_BIT;
 
-/* global variable -- pipeline state */
-extern CPU_State CURRENT_STATE;
+typedef struct CPU_State {
+	/* register file state */
+	int64_t REGS[ARM_REGS];
+	int FLAG_N;        /* flag N */
+	int FLAG_Z;        /* flag Z */
+
+	/* program counter in fetch stage */
+	uint64_t PC;
+	
+
+	Pipeline_Regs CURRENT_REGS, START_REGS;
+	bp_t BP;
+
+	/* FLAGS */
+	int FETCH_MORE;
+	int BUBBLE;
+	int CYCLE_STALL_INSTRUCT_CACHE;
+	int CYCLE_STALL_DATA_CACHE;
+
+	cache_t *theInstructionCache;
+	cache_t *theDataCache;
+
+	int RUN_BIT;
+} CPU_State;
 
 /* called during simulator startup */
 void pipe_init();

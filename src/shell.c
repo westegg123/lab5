@@ -19,7 +19,6 @@
 #include <inttypes.h>
 
 #include "shell.h"
-#include "pipe.h"
 
 /***************************************************************/
 /* Statistics.                                                 */
@@ -43,6 +42,9 @@ typedef struct {
     uint64_t start, size;
     uint8_t *mem;
 } mem_region_t;
+
+
+processor_t PROCESSOR;  
 
 /* memory will be dynamically allocated at initialization */
 mem_region_t MEM_REGIONS[] = {
@@ -130,7 +132,21 @@ void help() {
 /*                                                             */
 /***************************************************************/
 void cycle() {                                                
-  pipe_cycle();
+  if (PROCESSOR.CPU0.RUN_BIT == 1) {
+  	pipe_cycle(PROCESSOR.CPU0);
+  }
+
+  if (PROCESSOR.CPU1.RUN_BIT == 1) {
+  	pipe_cycle(PROCESSOR.CPU1);
+  }
+
+  if (PROCESSOR.CPU2.RUN_BIT == 1) {
+  	pipe_cycle(PROCESSOR.CPU2);
+  }
+
+  if (PROCESSOR.CPU3.RUN_BIT == 1) {
+  	pipe_cycle(PROCESSOR.CPU3);
+  }
 
   stat_cycles++;
 }
@@ -145,20 +161,24 @@ void cycle() {
 void run(int num_cycles) {                                      
   int i;
 
-  if (!RUN_BIT) {
+  if (!((PROCESSOR.CPU0.RUN_BIT == 1) | (PROCESSOR.CPU1.RUN_BIT == 1) | 
+		(PROCESSOR.CPU2.RUN_BIT == 1) | (PROCESSOR.CPU3.RUN_BIT == 1))) {
     printf("Can't simulate, Simulator is halted\n\n");
     return;
   }
 
   printf("Simulating for %d cycles...\n\n", num_cycles);
   for (i = 0; i < num_cycles; i++) {
-    if (!RUN_BIT) {
+    if (!((PROCESSOR.CPU0.RUN_BIT == 1) | (PROCESSOR.CPU1.RUN_BIT == 1) | 
+		(PROCESSOR.CPU2.RUN_BIT == 1) | (PROCESSOR.CPU3.RUN_BIT == 1))) {
 	    printf("Simulator halted\n\n");
 	    break;
     }
     cycle();
   }
 }
+
+
 
 /***************************************************************/
 /*                                                             */
@@ -168,14 +188,19 @@ void run(int num_cycles) {
 /*                                                             */
 /***************************************************************/
 void go() {                                                     
-  if (!RUN_BIT) {
+  if (!((PROCESSOR.CPU0.RUN_BIT == 1) | (PROCESSOR.CPU1.RUN_BIT == 1) | 
+		(PROCESSOR.CPU2.RUN_BIT == 1) | (PROCESSOR.CPU3.RUN_BIT == 1))) {
     printf("Can't simulate, Simulator is halted\n\n");
     return;
   }
 
   printf("Simulating...\n\n");
-  while (RUN_BIT)
-    cycle();
+  while (((PROCESSOR.CPU0.RUN_BIT == 1) | (PROCESSOR.CPU1.RUN_BIT == 1) | 
+		(PROCESSOR.CPU2.RUN_BIT == 1) | (PROCESSOR.CPU3.RUN_BIT == 1))) {
+  	cycle();
+
+  }
+    
   printf("Simulator halted\n\n");
 }
 /***************************************************************/ 
@@ -215,27 +240,32 @@ void rdump(FILE * dumpsim_file) {
   int k; 
 
   printf("\nCurrent register/bus values :\n");
+  printf("\n CPU 0\n");
   printf("-------------------------------------\n");
   printf("Instruction Retired : %u\n", stat_inst_retire);
-  printf("PC                : 0x%" PRIx64 "\n", CURRENT_STATE.PC);
+  printf("PC                : 0x%" PRIx64 "\n", PROCESSOR.CPU0.PC);
   printf("Registers:\n");
   for (k = 0; k < ARM_REGS; k++)
-    printf("X%d: 0x%" PRIx64 "\n", k, CURRENT_STATE.REGS[k]);
-  printf("FLAG_N: %d\n", CURRENT_STATE.FLAG_N);
-  printf("FLAG_Z: %d\n", CURRENT_STATE.FLAG_Z);
+    printf("X%d: 0x%" PRIx64 "\n", k, PROCESSOR.CPU0.REGS[k]);
+  printf("FLAG_N: %d\n", PROCESSOR.CPU0.FLAG_N);
+  printf("FLAG_Z: %d\n", PROCESSOR.CPU0.FLAG_Z);
   printf("No. of Cycles: %d\n", stat_cycles);
   printf("\n");
 
+
+  /////////////////////////////////////////////////////////////////////////////////////// DID N'T UPDATE PRINTING PROPERLY
+    /////////////////////////////////////////////////////////////////////////////////////// ONLY PRINTS FOR ONE
   /* dump the state information into the dumpsim file */
   fprintf(dumpsim_file, "\nCurrent register/bus values :\n");
+  fprintf(dumpsim_file, "\nCPU 0\n");
   fprintf(dumpsim_file, "-------------------------------------\n");
   fprintf(dumpsim_file, "Instruction Retired : %u\n", stat_inst_retire);
-  fprintf(dumpsim_file, "PC                : 0x%" PRIx64 "\n", CURRENT_STATE.PC);
+  fprintf(dumpsim_file, "PC                : 0x%" PRIx64 "\n", PROCESSOR.CPU0.PC);
   fprintf(dumpsim_file, "Registers:\n");
   for (k = 0; k < ARM_REGS; k++)
-    fprintf(dumpsim_file, "X%d: 0x%" PRIx64 "\n", k, CURRENT_STATE.REGS[k]);
-  fprintf(dumpsim_file, "FLAG_N: %d\n", CURRENT_STATE.FLAG_N);
-  fprintf(dumpsim_file, "FLAG_Z: %d\n", CURRENT_STATE.FLAG_Z);
+    fprintf(dumpsim_file, "X%d: 0x%" PRIx64 "\n", k, PROCESSOR.CPU0.REGS[k]);
+  fprintf(dumpsim_file, "FLAG_N: %d\n", PROCESSOR.CPU0.FLAG_N);
+  fprintf(dumpsim_file, "FLAG_Z: %d\n", PROCESSOR.CPU0.FLAG_Z);
   fprintf(dumpsim_file, "No. of Cycles: %d\n", stat_cycles);
   fprintf(dumpsim_file, "\n");
 }
@@ -297,6 +327,7 @@ void get_command(FILE * dumpsim_file) {
   case 'i':
    if (scanf("%i %" PRIx64, &register_no, &register_value) != 2)
       break;
+  /////////////////////////////////////////////////////////////////////////////////////INSTALL NEW VERSION PLEASE
    CURRENT_STATE.REGS[register_no] = register_value;
    break;
 
@@ -347,7 +378,9 @@ void load_program(char *program_filename) {
     ii += 4;
   }
 
-  CURRENT_STATE.PC = MEM_TEXT_START;
+  //CURRENT_STATE.PC = MEM_TEXT_START;
+  PROCESSOR.CPU0.PC = MEM_TEXT_START;
+
 
   printf("Read %d words from program into memory.\n\n", ii/4);
 }
@@ -363,13 +396,22 @@ void initialize(char *program_filename, int num_prog_files) {
   int i;
 
   init_memory();
-  pipe_init();
+  //pipe_init();
+  
+
+   memset(&PROCESSOR, 0, sizeof(processor_t));
+   pipe_init(&(PROCESSOR.CPU0), 0x00400000, 0);
+   pipe_init(&(PROCESSOR.CPU1), 0, 0);
+   pipe_init(&(PROCESSOR.CPU2), 0, 0);
+   pipe_init(&(PROCESSOR.CPU3), 0, 0);
+
+
   for ( i = 0; i < num_prog_files; i++ ) {
     load_program(program_filename);
     while(*program_filename++ != '\0');
   }
     
-  RUN_BIT = 1;
+  PROCESSOR.CPU0.RUN_BIT = 1;
 }
 
 /***************************************************************/
@@ -379,6 +421,7 @@ void initialize(char *program_filename, int num_prog_files) {
 /***************************************************************/
 int main(int argc, char *argv[]) {                              
   FILE * dumpsim_file;
+
 
   /* Error Checking */
   if (argc < 2) {

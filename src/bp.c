@@ -5,14 +5,11 @@
  * Gushu Li and Reza Jokar
  */
 #include "helper.h"
-#include "pipe.h"
 #include "bp.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
 
-extern bp_t BP;
-extern CPU_State CURRENT_STATE;
 #define BTB_SIZE 1024
 #define PHT_SIZE 256
 
@@ -91,7 +88,7 @@ void evaluate_prediction(CPU_State *CURRENT_STATE, uint32_t aExecuteInstructionP
 	if ((aActualNextInstructionPC != aPredictedNextInstructionPC) || (aBranchTakenPrediction != aBranchTaken)
 		|| (aBranchTaken && (aBTBEntry.valid != 1 || aBTBEntry.address_tag != aExecuteInstructionPC))) {
 		// printf("PREDICTION MISS\n");
-		set_settings_pred_miss(aActualNextInstructionPC);
+		set_settings_pred_miss(CURRENT_STATE, aActualNextInstructionPC);
 	}
 	// print_bp(BP);
 	// printf("------------------\n");
@@ -99,18 +96,18 @@ void evaluate_prediction(CPU_State *CURRENT_STATE, uint32_t aExecuteInstructionP
 }
 
 void bp_predict(CPU_State *CURRENT_STATE) {
-    uint64_t myPCPrediction = CURRENT_STATE.PC + 4;
+    uint64_t myPCPrediction = CURRENT_STATE->PC + 4;
     gshare_t myGshare = (CURRENT_STATE->BP).gshare;
-    BTB_entry_t myBTB_entry = (CURRENT_STATE->BP).BTB[get_BTB_index(CURRENT_STATE.PC)];
+    BTB_entry_t myBTB_entry = (CURRENT_STATE->BP).BTB[get_BTB_index(CURRENT_STATE->PC)];
 
     //printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
-    if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
+    if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE->PC) {
 		if (myBTB_entry.conditional == 0) { // If Unconditional Branch
 			// printf("YOOHOO!-----------------\n");
 			//printf("BTB HIT! (UNCONDITIONAL BRANCH)\n");
 			myPCPrediction = myBTB_entry.branch_target;
 		} else { // If Conditional Branch
-			if (should_take_branch(myGshare.PHT[(myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC))])) {
+			if (should_take_branch(myGshare.PHT[(myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE->PC))])) {
 				//printf("BTB HIT! (CONDITIONAL BRANCH)\n");
 				myPCPrediction = myBTB_entry.branch_target;
 			}
@@ -118,7 +115,7 @@ void bp_predict(CPU_State *CURRENT_STATE) {
     }
 
     // printf("PREDICTING: %lx\n", myPCPrediction);
-    CURRENT_STATE.PC = myPCPrediction;
+    CURRENT_STATE->PC = myPCPrediction;
     // print_bp(BP);
 }
 
@@ -143,7 +140,6 @@ void print_Gshare(bp_t BP) {
 }
 
 void print_bp(bp_t BP) {
-	printf("FETCH STAGE PC: %x\n", CURRENT_STATE.PC);
 	print_Gshare(BP);
 	print_BTB(BP);
 }
